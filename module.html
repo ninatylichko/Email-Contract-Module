@@ -1,0 +1,164 @@
+<!-- 
+  templateType: email
+  isEnabledForEmailV3Rendering: true
+-->
+
+{# Date convertion requirements can vary across portals. 
+Check datetime format if doesn't work #}
+
+  {% set contact_id = contact.hs_object_id %}
+  {% set company_id = contact.triggered_company_id %}
+  
+
+  {# ---- DATE WINDOW CONFIGURATION ---- #}
+  {% set now_ts = unixtimestamp(local_dt) %}
+  {% set day_ms = 24 * 60 * 60 * 1000 %}
+  {% set today_ts = (now_ts / day_ms)|int * day_ms %}
+  {% set tomorrow_ts = today_ts + day_ms %}
+  {% set cutoff_ts = today_ts + (60 * day_ms) %}  {# 60-day window #}
+  
+  {# ---- Arrays that will hold filtered contracts ---- #}
+  {% set tomorrow_contracts = [] %}
+  {% set other_contracts = [] %}
+  {% set contracts_retrieved = false %}
+  
+  {# ---- DATA RETRIEVAL (association type id: 22) ----  #}
+  {% if company_id %}
+    {% set company_contracts = crm_associations(company_id, "USER_DEFINED", 22, "limit=300") %}
+    {% set contracts_retrieved = true %}
+    {% if company_contracts and company_contracts.results %}
+      {% set contract_ids = company_contracts.results|map(attribute='id')|list %}
+  
+      {# Batch retrieval in chunks of 50 #}
+      {% set all_company_contracts = [] %}
+      {% set batch_size = 50 %}
+      {% set total_batches = (contract_ids|length / batch_size)|round(0, 'ceil')|int %}
+  
+      {% for batch_num in range(0, total_batches) %}
+        {% set start_idx = batch_num * batch_size %}
+        {% set end_idx = start_idx + batch_size %}
+        {% set batch_ids = contract_ids[start_idx:end_idx] %}
+        {% set id_list = batch_ids|join(",") %}
+  
+
+        {% set id_filter = "hs_object_id__in=" + id_list + "&limit=100" %}
+        {% set batch_contracts = crm_objects("contracts", id_filter, "contract_name,live_date,risk_agreed_contract_elsewhere,risk_customer_complained,risk_customer_renewed_directly,risk_high_risk") %}
+   
+
+                {% if batch_contracts and batch_contracts.results %}
+          {% for contract in batch_contracts.results %}
+            {% do all_company_contracts.append(contract) %}
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+  
+      {# ---- DATE FILTERING INTO tomorrow & other buckets ---- #}
+      {% for contract in all_company_contracts %}
+        {# RISK FILTER: Only process contracts where NO risk property equals "Yes" #}
+        {% if contract.risk_agreed_contract_elsewhere != "Yes" and contract.risk_customer_complained != "Yes" and contract.risk_customer_renewed_directly != "Yes" and contract.risk_high_risk != "Yes" %}
+          {% if contract.live_date %}
+          {# Parse DD/MM/YY or DD/MM/YYYY using strtotime approach #}
+          {% set dateArr = contract.live_date|split("/", 1000) %}
+          
+          {# Handle 2-digit or 4-digit years #}
+          {% if dateArr[2]|length == 2 %}
+            {% set year = (dateArr[2]|int + 2000) %}
+          {% else %}
+            {% set year = dateArr[2]|int %}
+          {% endif %}
+          
+          {# Build ISO date string for strtotime #}
+          {% set useDate = [
+              year,
+              (dateArr[1]|length == 1 ? '0' + dateArr[1] : dateArr[1]),
+              (dateArr[0]|length == 1 ? '0' + dateArr[0] : dateArr[0])
+            ]
+          %}
+          
+          {# Create proper ISO datetime string and convert to timestamp #}
+          {% set isoDateStr = useDate[0] + "-" + useDate[1] + "-" + useDate[2] + "T00:00:00+0000" %}
+          {% set date_obj = isoDateStr|strtotime("yyyy-MM-dd'T'HH:mm:ssZ") %}
+          {% set date_ts = unixtimestamp(date_obj) %}
+  
+          {% if date_ts > today_ts and date_ts <= tomorrow_ts %}
+            {% do tomorrow_contracts.append({"name": contract.contract_name or "Unnamed Contract", "date": contract.live_date, "timestamp": date_ts}) %}
+          {% elif date_ts > tomorrow_ts and date_ts <= cutoff_ts %}
+            {% do other_contracts.append({"name": contract.contract_name or "Unnamed Contract", "date": contract.live_date, "timestamp": date_ts}) %}
+          {% endif %}
+        {% endif %}
+        {% endif %}
+      {% endfor %}
+  
+      {# Sort arrays by timestamp for proper chronological display #}
+      {% set tomorrow_contracts = tomorrow_contracts | sort(false, false, "timestamp") %}
+      {% set other_contracts = other_contracts | sort(false, false, "timestamp") %}
+    {% endif %}
+  {% endif %}
+
+
+    
+{% for contract in other_contracts %}
+
+        {% endfor %}
+  {# ---- PRESENTATION LAYER  ----- #}
+  {% set t_count = tomorrow_contracts|length %}
+  {% set o_count = other_contracts|length %}
+  
+  {# ---- HELPER FUNCTIONS  ---- #}
+  {% macro render_contracts_table(contracts) %}
+    <table style="width: 90%; margin: 0 auto; border-collapse: collapse; border: 1px solid #EAECF0;">
+      <thead>
+        <tr>
+          <th style="text-align: left; border: 1px solid #EAECF0; background-color: #F2F4F7; padding: 15px 8px;  width: 70%;">Meter Name</th>
+          <th style="text-align: center; border: 1px solid #EAECF0; background-color: #F2F4F7; padding: 15px 8px;">Going Live</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for contract in contracts %}
+          <tr>
+            <td style="text-align: left; border: 1px solid #EAECF0; padding: 8px; width: 70%;">{{ contract.name }}</td>
+            <td style="text-align: center; border: 1px solid #EAECF0; padding: 8px;">{{ contract.date }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endmacro %}
+  
+  {% macro render_tomorrow_header(contracts) %}
+    {% set count = contracts|length %}
+    {% if count == 1 %}
+      <h3 style="text-align: center; margin:15px; width: 90%">Your meter "{{ contracts[0].name }}" goes live tomorrow  </h3>
+
+
+    {% else %}
+      <h3 style="text-align:center; margin:15px;">Your meters go live tomorrow:</h3>
+      {{ render_contracts_table(contracts) }}
+    {% endif %}
+  {% endmacro %}
+  
+  {# ---- MAIN RENDERING LOGIC ---- #}
+  {% if t_count == 0 and o_count == 0 %}
+    {% if not contracts_retrieved %}
+      {# Preview mode - no contract data attempted #}
+  <p style="dislpay: none;"></p>
+    {% else %}
+      {# Real contact with no contracts #}
+      <p style="dislpay: none;"></p>
+    {% endif %}
+  {% else %}
+    {# Render tomorrow section if exists #}
+    {% if t_count > 0 %}
+      {{ render_tomorrow_header(tomorrow_contracts) }}
+    {% endif %}
+    
+    {# Render other contracts section if exists #}
+    {% if o_count > 0 %}
+      {% if t_count == 0 %}
+        <p style="text-align:center;">You have no meters going live tomorrow.</p>
+      {% endif %}
+      <h4 style="text-align:center; margin:15px; margin-top: 25px;">Other meters ({{ o_count }}) going live within the next {% if t_count == 0 %}2{% else %}two{% endif %} months:</h4>
+      {{ render_contracts_table(other_contracts) }}
+    {% else %}
+      <p style="text-align:center; margin-top: 15px;">You have no other upcoming meters in the next 2 months.</p>
+    {% endif %}
+  {% endif %} 

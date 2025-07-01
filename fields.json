@@ -1,0 +1,80 @@
+[ {
+  "id" : "a5d4bba2-3bc4-da45-a8c5-3f53a83727e9",
+  "name" : "style",
+  "label" : "Style",
+  "required" : false,
+  "locked" : false,
+  "children" : [ {
+    "id" : "216119f7-f489-eb6a-b169-7f453a8c6022",
+    "name" : "spacing_field",
+    "label" : "Spacing",
+    "required" : false,
+    "locked" : false,
+    "type" : "spacing",
+    "display_width" : null,
+    "default" : { }
+  }, {
+    "id" : "50bb2066-51dd-7976-dd1a-2a4bc4f7ec54",
+    "name" : "border_field",
+    "label" : "Border",
+    "required" : false,
+    "locked" : false,
+    "allow_custom_border_sides" : false,
+    "type" : "border",
+    "display_width" : null,
+    "default" : { }
+  }, {
+    "id" : "7c480782-f5b0-b0e5-04c8-0a95a4bc4985",
+    "name" : "alignment_field",
+    "label" : "Alignment",
+    "required" : false,
+    "locked" : false,
+    "alignment_direction" : "BOTH",
+    "type" : "alignment",
+    "display_width" : null,
+    "default" : { }
+  }, {
+    "id" : "8bd0d698-57bc-29bb-ffe4-731908f4ae43",
+    "name" : "textalignment_field",
+    "label" : "Text alignment",
+    "required" : false,
+    "locked" : false,
+    "type" : "textalignment",
+    "display_width" : null,
+    "default" : { }
+  }, {
+    "id" : "24cee2e7-792a-f5a1-aefb-19dd66fc386a",
+    "name" : "color_field",
+    "label" : "Color",
+    "required" : false,
+    "locked" : false,
+    "type" : "color",
+    "display_width" : null,
+    "default" : {
+      "color" : null,
+      "opacity" : null
+    }
+  }, {
+    "id" : "4a4e9192-117d-940b-041d-42928c25dd34",
+    "name" : "font_field",
+    "label" : "Font",
+    "required" : false,
+    "locked" : false,
+    "load_external_fonts" : true,
+    "type" : "font",
+    "display_width" : null,
+    "default" : { }
+  } ],
+  "tab" : "STYLE",
+  "expanded" : false,
+  "group_occurrence_meta" : null,
+  "type" : "group",
+  "display_width" : null,
+  "default" : {
+    "color_field" : {
+      "color" : null,
+      "opacity" : null
+    },
+    "font_field" : { }
+  }
+} ]
